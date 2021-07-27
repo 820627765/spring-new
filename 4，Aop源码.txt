@@ -1,0 +1,121 @@
+1,aop相关概念理解
+- 切面(Aspect)：指关注点模块化。其实是将我们需要增强的功能(日志、事务等)封装到一个类中，这个类就可以称为切面。
+- 连接点(Join point)：就是要增强的某个方法。
+- 通知(Advice)：某个连接点上要执行的动作，这个动作有很多类型，包括“前置通知”，“后置通知”，“环绕通知”，“异常通知”等。
+- 目标对象(Target)：需要被增强的方法所属的对象。
+- 切点(Pointcut)：匹配连接点的断言，和切点表达式相对应，指定具体通知要增强的是那个方法或哪些方法。
+- 顾问(Advisor)：顾问是Advice(通知)的一种包装体现，Advisor是PointCut以及Advice的一个结合，用来管理通知和切点。
+- 织入(Weaving)：将通知切入连接点的过程叫织入，这是一个形象的描述概念。
+- 引入(Introductions)：可以将其他接口和实现动态引入到targetClass中。
+
+2，基于注解的方式使用 aop 需要先设置“开启注解形式的aop功能”
+   在配置类上加上 @EnableAspectJAutoProxy 注解，才表示开启注解形式的aop的能力。
+   该注解相当于原来的xml配置中的  <aop:aspectj-autoproxy />
+
+3，aop案例，计算器的服务
+   3.1 编写业务方法
+   @Component
+   public class MyCalculate implements Calculate {
+       public int add(int numA, int numB) {
+           System.out.println("执行目标方法:add");
+           return numA+numB;
+       }
+
+       public int sub(int numA, int numB) {
+           System.out.println("执行目标方法:reduce");
+           return numA-numB;
+       }
+
+       public int div(int numA, int numB) {
+           System.out.println("执行目标方法:div");
+           return numA/numB;
+       }
+
+       public int multi(int numA, int numB) {
+           System.out.println("执行目标方法:multi");
+
+           return numA*numB;
+       }
+
+       public int mod(int numA,int numB){
+           System.out.println("执行目标方法:mod");
+
+   		   int retVal = ((Calculate)AopContext.currentProxy()).add(numA,numB);
+           //int retVal = this.add(numA,numB);
+
+           return retVal%numA;
+
+           //return numA%numB;
+       }
+
+   }
+   3.2 开启注解形式的aop
+   @EnableAspectJAutoProxy
+   3.3 编写切面、切点、通知等
+   @Aspect
+   @Order
+   @Component
+   public class LogAspect {
+       /*引入:在切面里通过 @DeclareParents 注解声明一个引入 */
+       @DeclareParents(value="com.Calculate",   // 动态实现的类，指定要增强那个类
+               defaultImpl = SimpleProgramCalculate.class)  // 引入的接口的默认实现，指定引入的实现类，这个类具有某些特殊的功能(方法)
+       public static ProgramCalculate programCalculate;    // 引入的接口，申明一个静态的接口，这是固定的语法。注意，defaultImpl属性指定
+                //的实现类是这里指定的接口的实现类，即 SimpleProgramCalculate 类是ProgramCalculate接口的实现类。
+                //然后就可以在业务方法中,实现如下代码逻辑
+                ProgramCalculate pc = (ProgramCalculate)ctx.getBean("myCalculate"); //目标对象就可以赋值给 引入的接口类型的变量了
+                pc.toBinary(100);//调用其增强的方法。但是这个方法不会被 定义的前置通知等增强。
+
+       //切点
+       @Pointcut("execution(* tuling.TulingCalculate.*(..))")
+       public void pointCut(){};
+
+       // 前置通知
+       @Before(value = "pointCut()")
+       public void methodBefore(JoinPoint joinPoint) throws Throwable {
+           String methodName = joinPoint.getSignature().getName();
+           System.out.println("执行目标方法【"+methodName+"】的<前置通知>,入参"+ Arrays.asList(joinPoint.getArgs()));
+       }
+
+       // 后置通知
+       @After(value = "pointCut()")
+       public void methodAfter(JoinPoint joinPoint) {
+           String methodName = joinPoint.getSignature().getName();
+           System.out.println("执行目标方法【"+methodName+"】的<后置通知>,入参"+Arrays.asList(joinPoint.getArgs()));
+       }
+
+       // 后置通知
+       @AfterReturning(value = "pointCut()",returning = "result")
+       public void methodReturning(JoinPoint joinPoint, Object result) {
+           String methodName = joinPoint.getSignature().getName();
+           System.out.println("执行目标方法【"+methodName+"】的<返回通知>,入参"+Arrays.asList(joinPoint.getArgs()));
+       }
+
+       // 异常通知
+       @AfterThrowing(value = "pointCut()")
+       public void methodAfterThrowing(JoinPoint joinPoint) {
+           String methodName = joinPoint.getSignature().getName();
+           System.out.println("执行目标方法【"+methodName+"】的<异常通知>,入参"+Arrays.asList(joinPoint.getArgs()));
+       }
+
+   }
+
+3，aop的实现方式
+  1，aop是基于动态代理来实现的。默认情况下，使用接口的，用JDK提供的动态代理实现，如果没有接口，使用CGLIB实现。
+  CGLIB的底层呢是由ASM框架实现，该框架能动态修改字节码，通过修改需要被增强的.class 的字节码，来实现动态代理。
+  JDK方式的动态代理也是通过动态修改字节码的方式实现的。
+  2，Spirng3.2以后，spring-core直接把CGLIB和ASM的源码包括进来了，这也是为什么我们不需要显示引入这两个依赖的原因。
+  3，Spring AOP依赖IOC容器来管理
+  4，Spring AOP 只能作用于Spring容器中的Bean，它是使用纯粹的Java代码实现的，只能作用于bean的方法。
+  5，我们都说spring使用了AspectJ，那么究竟使用AspectJ的什么呢？
+     5.1 AspectJ的切点表达式，使用了AspectJ的表达式解析能力，解析哪些类命中了表达式。这个能力是AspectJ的。即“切点解析能力”
+     5.2 像@Aspect、@Before、@After 等注解都是 AspectJ发明的
+     spring提供了AspectJ的支持，但只用到AspectJ的切点解析和匹配
+     那么，为什么AspectJ如此优秀，Spring AOP不全用呢？
+     因为，AspectJ的动态代理有一个 静态织入的能力，如果要用这个能力，需要用到 AspectJ提供的一个“解析器”，因此如果要使用的化，就增加了
+     额外的成本。大概知道这个即可，后面有需要再了解。
+  6，Spring AOP 和 AspectJ的比较：
+    Spring AOP 是基于代理实现的，在容器启动的时候需要生成代理实例，在方法调用上也会增加栈的深度，使得Spring AOP的性能不如AspectJ那么好。
+
+4，Spring Aop 的历史
+
+

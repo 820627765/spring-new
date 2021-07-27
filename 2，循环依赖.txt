@@ -1,0 +1,32 @@
+1，什么是循环依赖问题？
+   @Component
+   public class A{
+        @Autowired
+        private B a;
+   }
+   ============================
+   @Component
+   public class B{
+        @Autowired
+        private C c;
+   }
+   =============================
+   @Component
+   public class C{
+        @Autowired
+        private A a;
+   }
+
+   即：A 依赖 B，B依赖C，C依赖A
+   我们知道当spring在创建这些Bean对象的过程是如下步骤：
+   1，实例化 A，然后填充属性，这时候发现A需要B对象，去一级缓存中获取，发现没有就执行2
+   2，实例化 B，然后填充属性，这时候发现B需要C对象，去一级缓存中获取，发现没有就执行3
+   3，实例化 C，然后填充属性，这时候发现C需要A对象，去一级缓存中获取，发现没有就执行4
+   4，又去实例化A，然后就开始循环1，2，3，4了
+   这就是循环依赖问题。
+
+2，spring是如何解决循环依赖的？
+    需要理解spring的bean实例化过程，主要是三级缓存是怎么使用的。
+
+
+

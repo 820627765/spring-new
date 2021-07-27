@@ -1,0 +1,58 @@
+1，如何使用spring的事件监听器
+   第一步：新建一个事件类，需要继承ApplicationEvent类，表示一个应用事件类，如订单事件
+   public class OrderEvent extends ApplicationEvent {
+       private String name;
+
+       public OrderEvent(Object source,String name) {
+           super(source);
+           this.name = name;
+       }
+   }
+   第二步：新建一个对应事件的监听器，需要实现ApplicationListener接口，并通过泛型指定要监听的是什么事件
+   @Component
+   public class OrderEventListener implements ApplicationListener<OrderEvent> {
+       @Override
+       public void onApplicationEvent(OrderEvent orderEvent) {
+           //当监听到泛型指定的事件触发的时候，就会来调用该方法
+           System.out.println("订单状态改变了" + orderEvent.getSource());
+       }
+   }
+   第三步：使用容器发布事件
+   ApplicationContext ac = new AnnotationConfigApplicationContext(MyConfig.class);
+   //发布事件，事件的处理方法和主线程是异步的
+   ac.publishEvent(new OrderEvent(new Order(),"订单状态改变了"));
+
+2，spring内置事件
+   内置事件由系统内部进行发布，只需要注入监听器即可。
+   内置事件如下：
+   ContextRefreshedEvent   当容器被实例化或refreshed时发布。如调用 refresh()方法，此处的实例化是指所有的bean都已经被加载，后置处理器都被激活，所有
+                           单例bean都已经被实例化，所有的容器对象都已经准备好可使用。
+
+   ContextStartedEvent      当容器启动时发布，即调用start()方法，已启动意味着所有的生命周期bean都已经显示收到了start信号
+   ContextStopedEvent       当容器停止时发布，即调用stop()方法，即所有生命周期bean都已经显示收到了stop信号，关闭的容器可以通过start()方法重启。
+   ContextClosedEvent       当容器关闭时发布
+   RequestHandledEvent      这只在spring的DispatcherServlet时有效，当一个请求被处理完成时发布。
+
+   如何监听这些事件呢？
+   /**
+    * 如下是基于注解的监听器
+    */
+   @Component
+   public class ContextEventListener {
+       //表示监听 ContextStartedEvent 事件
+       @EventListener(ContextStartedEvent.class)
+       public void onApplicationEvent(ContextStartedEvent event){
+           System.out.println("ContextStartedEvent 事件监听被执行");
+       }
+
+       @EventListener(ContextRefreshedEvent.class)
+       public void onApplicationEvent(ContextRefreshedEvent event){
+           System.out.println("ContextRefreshedEvent 事件监听被执行");
+       }
+   }
+
+3，
+
+
+
+
